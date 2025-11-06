@@ -1,0 +1,156 @@
+"""
+Batch OCR for all images in a folder using Qwen2.5-VL API
+"""
+
+import base64
+import requests
+import os
+from pathlib import Path
+from datetime import datetime
+
+# 설정
+API_KEY = "vllm-hTmPPPUqHk81s95gimRWHpoEDKdUNnN4"
+API_URL = "http://175.209.208.168:7777/v1/chat/completions"
+IMAGE_FOLDER = r"C:\Users\User\Pictures\sh"
+OUTPUT_FILE = "logs.txt"
+
+# 지원하는 이미지 확장자
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+
+
+def encode_image(image_path):
+    """이미지를 base64로 인코딩"""
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+
+def ocr_image(image_path, image_name):
+    """단일 이미지 OCR 처리"""
+    print(f"Processing: {image_name}...")
+    
+    try:
+        # 이미지 인코딩
+        image_base64 = encode_image(image_path)
+        
+        # API 요청
+        response = requests.post(
+            API_URL,
+            headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{image_base64}"
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": "이 이미지의 모든 텍스트를 정확하게 추출해주세요. OCR 결과만 출력해주세요."
+                            }
+                        ]
+                    }
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.1
+            },
+            timeout=60
+        )
+        
+        response.raise_for_status()
+        result = response.json()
+        
+        # OCR 결과 추출
+        ocr_text = result["choices"][0]["message"]["content"]
+        print(f"  ✓ Success")
+        return ocr_text
+        
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        print(f"  ✗ Failed: {error_msg}")
+        return error_msg
+
+
+def main():
+    """메인 실행 함수"""
+    print("="*80)
+    print("Batch OCR Processing Started")
+    print("="*80)
+    print(f"API URL: {API_URL}")
+    print(f"Image Folder: {IMAGE_FOLDER}")
+    print(f"Output File: {OUTPUT_FILE}")
+    print("="*80)
+    print()
+    
+    # 이미지 파일 목록 가져오기
+    image_folder = Path(IMAGE_FOLDER)
+    
+    if not image_folder.exists():
+        print(f"Error: Folder does not exist: {IMAGE_FOLDER}")
+        return
+    
+    image_files = [
+        f for f in image_folder.iterdir() 
+        if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
+    ]
+    
+    if not image_files:
+        print(f"No image files found in {IMAGE_FOLDER}")
+        return
+    
+    print(f"Found {len(image_files)} image(s)\n")
+    
+    # 로그 파일 열기
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as log_file:
+        # 헤더 작성
+        log_file.write("="*80 + "\n")
+        log_file.write(f"Batch OCR Results\n")
+        log_file.write(f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        log_file.write(f"Total Images: {len(image_files)}\n")
+        log_file.write("="*80 + "\n\n")
+        
+        # 각 이미지 처리
+        success_count = 0
+        for idx, image_file in enumerate(image_files, 1):
+            image_name = image_file.name
+            
+            # 로그 파일에 구분자 작성
+            log_file.write("\n" + "-"*80 + "\n")
+            log_file.write(f"[{idx}/{len(image_files)}] File: {image_name}\n")
+            log_file.write("-"*80 + "\n")
+            
+            # OCR 처리
+            ocr_result = ocr_image(str(image_file), image_name)
+            
+            # 결과 저장
+            log_file.write(ocr_result + "\n")
+            log_file.flush()  # 즉시 파일에 쓰기
+            
+            if not ocr_result.startswith("ERROR"):
+                success_count += 1
+            
+            print()
+        
+        # 푸터 작성
+        log_file.write("\n" + "="*80 + "\n")
+        log_file.write(f"Processing Complete\n")
+        log_file.write(f"Success: {success_count}/{len(image_files)}\n")
+        log_file.write(f"Failed: {len(image_files) - success_count}/{len(image_files)}\n")
+        log_file.write("="*80 + "\n")
+    
+    print("="*80)
+    print(f"✓ All processing complete!")
+    print(f"✓ Results saved to: {OUTPUT_FILE}")
+    print(f"✓ Success: {success_count}/{len(image_files)}")
+    print("="*80)
+
+
+if __name__ == "__main__":
+    main()

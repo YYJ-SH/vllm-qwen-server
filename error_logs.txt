@@ -1,0 +1,7 @@
+Error Log - 2025-11-06 18:32:52
+================================================================================
+
+[2025-11-06 18:33:02] [ERROR] ✗ Cannot connect to API server: http://175.209.208.168:7777/v1/chat/completions
+[2025-11-06 18:33:02] [ERROR]   Error: HTTPConnectionPool(host='175.209.208.168', port=7777): Max retries exceeded with url: /v1/models (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x0000021E59D1E590>, 'Connection to 175.209.208.168 timed out. (connect timeout=10)'))
+[2025-11-06 18:33:02] [ERROR]   Check if the server is running and the IP/port are correct
+[2025-11-06 18:33:02] [ERROR] API connection test failed. Exiting.
